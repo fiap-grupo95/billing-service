@@ -92,31 +92,8 @@ func (r *EstimateDynamoRepository) GetByID(ctx context.Context, id string) (enti
 }
 
 func (r *EstimateDynamoRepository) GetByOSID(ctx context.Context, osID string) (entities.Estimate, error) {
-	out, err := r.ddb.Query(ctx, &dynamodb.QueryInput{
-		TableName:              aws.String(r.tableName),
-		IndexName:              aws.String("os_id-index"),
-		KeyConditionExpression: aws.String("#os_id = :os_id"),
-		ExpressionAttributeNames: map[string]string{
-			"#os_id": "os_id",
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":os_id": &types.AttributeValueMemberS{Value: osID},
-		},
-		Limit: aws.Int32(1),
-	})
-	if err != nil {
-		// Backward-compatible fallback when os_id-index is not present.
-		return r.getByOSIDByScan(ctx, osID)
-	}
-	if len(out.Items) == 0 {
-		return entities.Estimate{}, nil
-	}
-
-	var it estimateItem
-	if err := attributevalue.UnmarshalMap(out.Items[0], &it); err != nil {
-		return entities.Estimate{}, err
-	}
-	return fromEstimateItem(it), nil
+	// Domain rule: estimate ID equals OS ID. We can resolve by PK directly.
+	return r.GetByID(ctx, osID)
 }
 
 func (r *EstimateDynamoRepository) UpdateStatusByOSID(ctx context.Context, osID string, status entities.EstimateStatus) (entities.Estimate, error) {
@@ -140,32 +117,6 @@ func (r *EstimateDynamoRepository) UpdateStatusByOSID(ctx context.Context, osID 
 		}
 		return expr, vals, names
 	})
-}
-
-func (r *EstimateDynamoRepository) getByOSIDByScan(ctx context.Context, osID string) (entities.Estimate, error) {
-	out, err := r.ddb.Scan(ctx, &dynamodb.ScanInput{
-		TableName:        aws.String(r.tableName),
-		FilterExpression: aws.String("#os_id = :os_id"),
-		ExpressionAttributeNames: map[string]string{
-			"#os_id": "os_id",
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":os_id": &types.AttributeValueMemberS{Value: osID},
-		},
-		Limit: aws.Int32(1),
-	})
-	if err != nil {
-		return entities.Estimate{}, err
-	}
-	if len(out.Items) == 0 {
-		return entities.Estimate{}, nil
-	}
-
-	var it estimateItem
-	if err := attributevalue.UnmarshalMap(out.Items[0], &it); err != nil {
-		return entities.Estimate{}, err
-	}
-	return fromEstimateItem(it), nil
 }
 
 func (r *EstimateDynamoRepository) UpdatePriceByID(ctx context.Context, id string, newPrice float64) (entities.Estimate, error) {

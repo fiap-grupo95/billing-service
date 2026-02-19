@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"mecanica_xpto/internal/adapter/http/dto/request"
 	response "mecanica_xpto/internal/adapter/http/dto/response"
 	"mecanica_xpto/internal/usecase"
 	"mecanica_xpto/pkg"
@@ -97,19 +96,8 @@ func readMPPayload(c *gin.Context) (json.RawMessage, error) {
 			if len(strings.TrimSpace(string(wrapped))) == 0 || strings.TrimSpace(string(wrapped)) == "null" {
 				return nil, errors.New("mp_payload cannot be empty")
 			}
-			if !json.Valid(wrapped) {
-				return nil, errors.New("mp_payload is not valid json")
-			}
 			return wrapped, nil
 		}
-	}
-
-	var req request.BillingPaymentCreateRequest
-	if err := json.Unmarshal(raw, &req); err == nil && len(req.MPPayload) > 0 {
-		if !json.Valid(req.MPPayload) {
-			return nil, errors.New("mp_payload is not valid json")
-		}
-		return req.MPPayload, nil
 	}
 
 	return json.RawMessage(raw), nil

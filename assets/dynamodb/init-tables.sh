@@ -56,6 +56,7 @@ echo "DynamoDB tables ready."
 # --- Seed demo data (1 record per table) ---
 
 SEED_OS_ID="${SEED_OS_ID:-os_demo_1}"
+SEED_ESTIMATE_PRICE="${SEED_ESTIMATE_PRICE:-100.0}"
 SEED_ESTIMATE_VALUE_CENTS="${SEED_ESTIMATE_VALUE_CENTS:-10000}"
 SEED_PAYMENT_ID="${SEED_PAYMENT_ID:-pay_demo_1}"
 
@@ -86,7 +87,7 @@ seed_estimate_if_missing() {
     --item "{\
       \"id\":{\"S\":\"${ID}\"},\
       \"os_id\":{\"S\":\"${ID}\"},\
-      \"value_cents\":{\"N\":\"${SEED_ESTIMATE_VALUE_CENTS}\"},\
+      \"price\":{\"N\":\"${SEED_ESTIMATE_PRICE}\"},\
       \"status\":{\"S\":\"pendente\"},\
       \"created_at\":{\"S\":\"${NOW}\"},\
       \"updated_at\":{\"S\":\"${NOW}\"}\

@@ -115,8 +115,6 @@ func (u *BillingPaymentUseCase) CreateAndApprove(ctx context.Context, estimateID
 		if b, err := json.Marshal(reqMap); err == nil {
 			mpPayload = b
 			log.Printf("[payment][usecase] payload enriched estimate_id=%s payload_len=%d", estimateID, len(mpPayload))
-		} else {
-			log.Printf("[payment][usecase] payload marshal failed estimate_id=%s err=%v", estimateID, err)
 		}
 	} else {
 		log.Printf("[payment][usecase] payload unmarshal failed estimate_id=%s err=%v", estimateID, err)
