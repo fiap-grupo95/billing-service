@@ -1,0 +1,42 @@
+## 📝 Descrição
+Descreva brevemente as mudanças realizadas neste PR.
+
+## 🎯 Tipo de Mudança
+- [ ] 🐛 Bug fix (correção que resolve um problema)
+- [ ] ✨ Nova funcionalidade (mudança que adiciona funcionalidade)
+- [ ] 💥 Breaking change (correção ou funcionalidade que causa quebra de compatibilidade)
+- [ ] 📚 Documentação (mudanças apenas na documentação)
+- [ ] 🔧 Refatoração (mudança de código que não adiciona funcionalidade nem corrige bugs)
+- [ ] ⚡ Melhoria de performance
+- [ ] 🧪 Testes (adição ou correção de testes)
+- [ ] 🔨 Build/CI (mudanças no build ou integração contínua)
+
+## 🔗 Issue Relacionada
+Fixes #(número da issue)
+
+## 📋 Checklist
+- [ ] Meu código segue o style guide do projeto
+- [ ] Realizei uma auto-revisão do meu código
+- [ ] Comentei o código em áreas complexas
+- [ ] Fiz as mudanças correspondentes na documentação
+- [ ] Minhas mudanças não geram novos warnings
+- [ ] Adicionei testes que provam que minha correção é efetiva ou que minha funcionalidade funciona
+- [ ] Testes unitários novos e existentes passam localmente com minhas mudanças
+- [ ] Verifiquei se há mudanças dependentes que requerem merge downstream
+
+## 🧪 Como Foi Testado?
+Descreva os testes que você executou para verificar suas mudanças.
+
+- [ ] Testes unitários
+- [ ] Testes de integração
+- [ ] Testes manuais
+- [ ] Outros (especifique):
+
+## 📸 Screenshots (se aplicável)
+Adicione screenshots para ajudar a explicar suas mudanças.
+
+## 📝 Notas Adicionais
+Adicione qualquer informação adicional ou contexto sobre o PR aqui.
+
+---
+**⚠️ Lembrete:** Este PR só será merged após aprovação de pelo menos um revisor e após todos os checks passarem.

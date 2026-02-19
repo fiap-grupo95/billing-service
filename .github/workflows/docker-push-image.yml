@@ -1,0 +1,53 @@
+name: Publish Release Image to Docker Hub
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get latest version
+        id: get_version
+        run: |
+          # Fetch all tags, filter for semantic versions, and sort to get the latest
+          LATEST_VERSION=$(curl -s "https://hub.docker.com/v2/repositories/mandaapag03/billing-service/tags/?page_size=100" \
+            | jq -r '.results[].name' \
+            | grep -oP '^v\d+\.\d+\.\d+' \
+            | sort -V \
+            | tail -n 1)
+          if [ -z "$LATEST_VERSION" ]; then
+            LATEST_VERSION="v0.0.0"
+          fi
+          
+          # Extract version numbers
+          MAJOR=$(echo $LATEST_VERSION | cut -d. -f1 | tr -d 'v')
+          MINOR=$(echo $LATEST_VERSION | cut -d. -f2)
+          PATCH=$(echo $LATEST_VERSION | cut -d. -f3)
+          
+          # Increment patch version
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="v$MAJOR.$MINOR.$NEW_PATCH"
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "New version will be: $NEW_VERSION"
+
+      - name: Build and tag Docker image
+        run: |
+          docker build . --file Dockerfile --tag mandaapag03/billing-service:${{ env.NEW_VERSION }}
+          docker tag mandaapag03/billing-service:${{ env.NEW_VERSION }} mandaapag03/billing-service:latest
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Push Docker image
+        run: |
+          docker push mandaapag03/billing-service:${{ env.NEW_VERSION }}
+          docker push mandaapag03/billing-service:latest

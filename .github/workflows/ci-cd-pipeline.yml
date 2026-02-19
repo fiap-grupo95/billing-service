@@ -1,0 +1,115 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    types: [closed]
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  go:
+    name: Go Build & Test
+    if: ${{ github.event.pull_request.merged == true }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24.4'
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+      - name: Generate Swagger Documentation
+        run: swag init -g cmd/api/main.go
+      - name: Build
+        run: go build -v ./...
+      - name: Test
+        run: go test -v ./...
+
+  docker-build:
+    name: Build Docker Image
+    needs: go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build . --file Dockerfile
+
+  docker-push:
+    name: Publish Docker Image
+    needs: docker-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get latest version
+        id: get_version
+        run: |
+          LATEST_VERSION=$(curl -s "https://hub.docker.com/v2/repositories/mandaapag03/billing-service/tags/?page_size=100" \
+            | jq -r '.results[].name' \
+            | grep -oP '^v\d+\.\d+\.\d+' \
+            | sort -V \
+            | tail -n 1)
+          if [ -z "$LATEST_VERSION" ]; then
+            LATEST_VERSION="v0.0.0"
+          fi
+          MAJOR=$(echo $LATEST_VERSION | cut -d. -f1 | tr -d 'v')
+          MINOR=$(echo $LATEST_VERSION | cut -d. -f2)
+          PATCH=$(echo $LATEST_VERSION | cut -d. -f3)
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="v$MAJOR.$MINOR.$NEW_PATCH"
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "New version will be: $NEW_VERSION"
+      - name: Build and tag Docker image
+        run: |
+          docker build . --file Dockerfile --tag mandaapag03/billing-service:${{ env.NEW_VERSION }}
+          docker tag mandaapag03/billing-service:${{ env.NEW_VERSION }} mandaapag03/billing-service:latest
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Push Docker image
+        run: |
+          docker push mandaapag03/billing-service:${{ env.NEW_VERSION }}
+          docker push mandaapag03/billing-service:latest
+  kubectl-apply:
+    name: Kubectl Apply Manifests
+    needs: docker-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "latest"
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --region us-east-1 --name eks-fiap-eks-terraform
+      - name: Apply Kubernetes Manifests
+        run: |
+          kubectl apply -f namespace.yml
+          kubectl apply -f secret.yml
+          kubectl apply -f configmap.yml
+          kubectl apply -f service-api.yml
+          kubectl apply -f deployment-api.yml
+          kubectl apply -f hpa-api.yml
+        working-directory: ./infrastructure/k8s/deploy
+      - name: Apply New Relic Manifests
+        run: |
+          kubectl apply -f newrelic-namespace.yml
+          kubectl apply -f newrelic-secret.yml
+          kubectl apply -f newrelic-configmap.yml
+          kubectl apply -f newrelic-fluent-bit-configmap.yml
+          kubectl apply -f newrelic-events-configmap.yml
+          kubectl apply -f newrelic-rbac.yml
+          kubectl apply -f newrelic-daemonset-infra.yml
+          kubectl apply -f newrelic-daemonset-fluent-bit.yml
+          kubectl apply -f newrelic-kube-state-metrics.yml
+          kubectl apply -f newrelic-deployment-events.yml
+        working-directory: ./infrastructure/k8s/deploy
+          

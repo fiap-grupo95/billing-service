@@ -1,0 +1,24 @@
+# Files and directories to exclude from Go test coverage
+#
+# Este arquivo define padrões para pacotes Go que devem ser excluídos 
+# dos cálculos de cobertura de teste
+# Cada linha deve ser um padrão grep válido
+
+# Repository layer - primarily database interactions
+internal/domain/repository
+internal/infrastructure/database
+
+# Mock files used for testing
+mocks
+mock
+
+# Generated files
+pb.go
+swagger
+
+# Configuration and infrastructure code
+internal/infrastructure/config
+cmd/api
+
+# Other files not relevant for coverage metrics
+docs

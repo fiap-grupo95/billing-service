@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: newrelic-kube-events
+  namespace: newrelic
+  labels:
+    app: newrelic-kube-events
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: newrelic-kube-events
+  template:
+    metadata:
+      labels:
+        app: newrelic-kube-events
+    spec:
+      serviceAccountName: newrelic
+      containers:
+        - name: kube-events
+          image: newrelic/nri-kube-events:2.16.3
+          imagePullPolicy: IfNotPresent
+          args:
+            - "-config"
+            - "/app/config/config.yaml"
+            - "-loglevel"
+            - "info"
+          env:
+            - name: NRIA_LICENSE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: newrelic-license-key
+                  key: license
+          volumeMounts:
+            - name: config-volume
+              mountPath: /app/config
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 64Mi
+      volumes:
+        - name: config-volume
+          configMap:
+            name: newrelic-events-config

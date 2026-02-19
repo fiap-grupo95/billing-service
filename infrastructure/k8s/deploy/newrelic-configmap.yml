@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: newrelic-config
+  namespace: newrelic
+data:
+  cluster-name: "mecanica-xpto-cluster"
+
+  # Parser para logs em formato JSON
+  parsers.conf: |
+    [PARSER]
+        Name         json
+        Format       json
+        Time_Key     time
+        Time_Format  %Y-%m-%dT%H:%M:%S.%L%z
+
+    [PARSER]
+        Name         docker
+        Format       json
+        Time_Key     time
+        Time_Format  %Y-%m-%dT%H:%M:%S.%L%z
+        Time_Keep    On
+
+    [PARSER]
+        Name         containerd
+        Format       regex
+        Regex        ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) (?<log>.*)$
+        Time_Key     time
+        Time_Format  %Y-%m-%dT%H:%M:%S.%L%z
+        Time_Keep    On

@@ -1,0 +1,134 @@
+services:
+  app:
+    profiles: ["dynamodb-local"]
+    container_name: billing_service_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-local}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-local}
+      DYNAMODB_ENDPOINT: ${DYNAMODB_ENDPOINT:-http://dynamodb:8000}
+      ESTIMATES_TABLE: ${ESTIMATES_TABLE:-estimates}
+      PAYMENTS_TABLE: ${PAYMENTS_TABLE:-payments}
+      MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN:-}
+    depends_on:
+      dynamodb-init:
+        condition: service_completed_successfully
+    networks:
+      - billing_network
+
+  app-localstack:
+    profiles: ["localstack"]
+    container_name: billing_service_app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-local}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-local}
+      DYNAMODB_ENDPOINT: ${DYNAMODB_ENDPOINT:-http://localstack:4566}
+      ESTIMATES_TABLE: ${ESTIMATES_TABLE:-estimates}
+      PAYMENTS_TABLE: ${PAYMENTS_TABLE:-payments}
+      MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN:-}
+    depends_on:
+      localstack-init:
+        condition: service_completed_successfully
+    networks:
+      - billing_network
+
+  dynamodb:
+    profiles: ["dynamodb-local"]
+    image: amazon/dynamodb-local:2.5.4
+    container_name: billing_service_dynamodb
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
+    user: root
+    ports:
+      - "8000:8000"
+    volumes:
+      - dynamodb_data:/home/dynamodblocal/data
+    networks:
+      - billing_network
+
+  dynamodb-init:
+    profiles: ["dynamodb-local"]
+    image: amazon/aws-cli:2.27.48
+    container_name: billing_service_dynamodb_init
+    depends_on:
+      - dynamodb
+    environment:
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-local}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-local}
+      DYNAMODB_ENDPOINT_URL: http://dynamodb:8000
+      ESTIMATES_TABLE: ${ESTIMATES_TABLE:-estimates}
+      PAYMENTS_TABLE: ${PAYMENTS_TABLE:-payments}
+    volumes:
+      - ./assets/dynamodb/init-tables.sh:/init-tables.sh:ro
+    entrypoint: ["/bin/sh", "/init-tables.sh"]
+    networks:
+      - billing_network
+
+  dynamodb-admin:
+    profiles: ["dynamodb-local"]
+    image: aaronshaf/dynamodb-admin:latest
+    container_name: billing_service_dynamodb_admin
+    ports:
+      - "8001:8001"
+    environment:
+      DYNAMO_ENDPOINT: http://dynamodb:8000
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-local}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-local}
+    depends_on:
+      - dynamodb
+    networks:
+      - billing_network
+
+  # Optional: LocalStack (profile "localstack")
+  # Use when you prefer an AWS-like edge endpoint (http://localhost:4566).
+  # Example: docker compose --profile localstack up --build
+  localstack:
+    image: localstack/localstack:3.3.0
+    container_name: billing_service_localstack
+    profiles: ["localstack"]
+    environment:
+      SERVICES: dynamodb
+      DEFAULT_REGION: ${AWS_REGION:-us-east-1}
+      DEBUG: ${LOCALSTACK_DEBUG:-0}
+    ports:
+      - "4566:4566"
+    networks:
+      - billing_network
+
+  localstack-init:
+    image: amazon/aws-cli:2.27.48
+    container_name: billing_service_localstack_init
+    profiles: ["localstack"]
+    depends_on:
+      - localstack
+    environment:
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-local}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-local}
+      DYNAMODB_ENDPOINT_URL: http://localstack:4566
+      ESTIMATES_TABLE: ${ESTIMATES_TABLE:-estimates}
+      PAYMENTS_TABLE: ${PAYMENTS_TABLE:-payments}
+    volumes:
+      - ./assets/dynamodb/init-tables.sh:/init-tables.sh:ro
+    entrypoint: ["/bin/sh", "/init-tables.sh"]
+    networks:
+      - billing_network
+
+networks:
+  billing_network:
+    driver: bridge
+
+volumes:
+  dynamodb_data:
