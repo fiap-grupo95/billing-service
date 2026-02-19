@@ -38,8 +38,12 @@ create_table_if_missing() {
 wait_for_dynamo
 
 create_table_if_missing "${ESTIMATES_TABLE}" \
-  --attribute-definitions AttributeName=id,AttributeType=S \
+  --attribute-definitions \
+    AttributeName=id,AttributeType=S \
+    AttributeName=os_id,AttributeType=S \
   --key-schema AttributeName=id,KeyType=HASH \
+  --global-secondary-indexes \
+    "IndexName=os_id-index,KeySchema=[{AttributeName=os_id,KeyType=HASH}],Projection={ProjectionType=ALL}" \
   --billing-mode PAY_PER_REQUEST
 
 create_table_if_missing "${PAYMENTS_TABLE}" \

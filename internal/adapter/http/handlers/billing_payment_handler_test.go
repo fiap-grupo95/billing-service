@@ -24,6 +24,8 @@ func (failingReadCloser) Close() error               { return nil }
 
 func TestBillingPaymentHandler_CreatePaymentByEstimateID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	t.Setenv("PAYMENT_GATEWAY_MOCK", "")
+	t.Setenv("MERCADOPAGO_MOCK", "")
 
 	t.Run("invalid payload", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -82,8 +84,8 @@ func TestBillingPaymentHandler_CreatePaymentByEstimateID(t *testing.T) {
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
-		if w.Code != http.StatusCreated {
-			t.Fatalf("expected 201, got %d", w.Code)
+		if w.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d", w.Code)
 		}
 		var body map[string]any
 		_ = json.Unmarshal(w.Body.Bytes(), &body)
@@ -95,6 +97,8 @@ func TestBillingPaymentHandler_CreatePaymentByEstimateID(t *testing.T) {
 
 func TestBillingPaymentHandler_GetPaymentByEstimateID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	t.Setenv("PAYMENT_GATEWAY_MOCK", "")
+	t.Setenv("MERCADOPAGO_MOCK", "")
 
 	t.Run("list error", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
@@ -166,6 +170,8 @@ func TestBillingPaymentHandler_GetPaymentByEstimateID(t *testing.T) {
 
 func TestReadMPPayload(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	t.Setenv("PAYMENT_GATEWAY_MOCK", "")
+	t.Setenv("MERCADOPAGO_MOCK", "")
 
 	makeCtx := func(raw string) *gin.Context {
 		w := httptest.NewRecorder()
@@ -219,6 +225,9 @@ func TestReadMPPayload(t *testing.T) {
 }
 
 func TestMapBillingPaymentError(t *testing.T) {
+	t.Setenv("PAYMENT_GATEWAY_MOCK", "")
+	t.Setenv("MERCADOPAGO_MOCK", "")
+
 	cases := []struct {
 		err  error
 		code int

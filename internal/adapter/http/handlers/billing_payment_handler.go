@@ -8,6 +8,7 @@ import (
 	"mecanica_xpto/internal/usecase"
 	"mecanica_xpto/pkg"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -27,12 +28,18 @@ func NewBillingPaymentHandler(uc usecase.IBillingPaymentUseCase) *BillingPayment
 func (h *BillingPaymentHandler) CreatePaymentByEstimateID(c *gin.Context) {
 	estimateID := c.Param("estimate_id")
 	log.Printf("[payment][handler] create start estimate_id=%s", estimateID)
+	mockMode := isPaymentGatewayMockEnabled()
 	mpPayload, err := readMPPayload(c)
 	if err != nil {
-		log.Printf("[payment][handler] invalid payload estimate_id=%s err=%v", estimateID, err)
-		appErr := pkg.NewDomainErrorSimple("INVALID_REQUEST", "Invalid request", http.StatusBadRequest)
-		c.JSON(appErr.HTTPStatus, appErr.ToHTTPError())
-		return
+		if mockMode {
+			log.Printf("[payment][handler] payload invalid in mock mode; fallback to empty payload estimate_id=%s err=%v", estimateID, err)
+			mpPayload = json.RawMessage("{}")
+		} else {
+			log.Printf("[payment][handler] invalid payload estimate_id=%s err=%v", estimateID, err)
+			appErr := pkg.NewDomainErrorSimple("INVALID_REQUEST", "Invalid request", http.StatusBadRequest)
+			c.JSON(appErr.HTTPStatus, appErr.ToHTTPError())
+			return
+		}
 	}
 
 	created, err := h.usecase.CreateAndApprove(c.Request.Context(), estimateID, mpPayload)
@@ -44,7 +51,7 @@ func (h *BillingPaymentHandler) CreatePaymentByEstimateID(c *gin.Context) {
 	}
 	log.Printf("[payment][handler] create success estimate_id=%s payment_id=%s status=%s", estimateID, created.ID, created.Status)
 
-	c.JSON(http.StatusCreated, response.FromBillingPayment(created))
+	c.JSON(http.StatusOK, response.FromBillingPayment(created))
 }
 
 // GetPaymentByEstimateID returns the latest payment for an estimate.
@@ -122,4 +129,20 @@ func mapBillingPaymentError(err error) *pkg.AppError {
 	default:
 		return pkg.NewDomainError("INTERNAL_ERROR", "An internal error occurred", err, http.StatusInternalServerError)
 	}
+}
+
+func isPaymentGatewayMockEnabled() bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("PAYMENT_GATEWAY_MOCK")))
+	switch v {
+	case "1", "true", "yes", "on", "mock":
+		return true
+	}
+
+	v = strings.ToLower(strings.TrimSpace(os.Getenv("MERCADOPAGO_MOCK")))
+	switch v {
+	case "1", "true", "yes", "on", "mock":
+		return true
+	}
+
+	return false
 }

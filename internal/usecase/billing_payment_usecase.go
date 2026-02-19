@@ -9,6 +9,7 @@ import (
 	"mecanica_xpto/internal/domain/entities"
 	"mecanica_xpto/internal/usecase/interfaces"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -49,18 +50,27 @@ func NewBillingPaymentUseCase(repo interfaces.IBillingPaymentRepository, estimat
 
 func (u *BillingPaymentUseCase) CreateAndApprove(ctx context.Context, estimateID string, mpPayload json.RawMessage) (entities.BillingPayment, error) {
 	log.Printf("[payment][usecase] create-and-approve start raw_estimate_id=%q payload_len=%d", estimateID, len(mpPayload))
+	mockMode := isPaymentGatewayMockEnabled()
 	estimateID = strings.TrimSpace(estimateID)
 	if estimateID == "" {
 		log.Printf("[payment][usecase] invalid estimate_id (empty)")
 		return entities.BillingPayment{}, ErrInvalidPaymentEstimateID
 	}
 	if len(mpPayload) == 0 {
-		log.Printf("[payment][usecase] invalid payload (empty) estimate_id=%s", estimateID)
-		return entities.BillingPayment{}, ErrInvalidMPPayload
+		if mockMode {
+			mpPayload = json.RawMessage("{}")
+		} else {
+			log.Printf("[payment][usecase] invalid payload (empty) estimate_id=%s", estimateID)
+			return entities.BillingPayment{}, ErrInvalidMPPayload
+		}
 	}
 	if !json.Valid(mpPayload) {
-		log.Printf("[payment][usecase] invalid payload (not-json) estimate_id=%s", estimateID)
-		return entities.BillingPayment{}, ErrInvalidMPPayload
+		if mockMode {
+			mpPayload = json.RawMessage("{}")
+		} else {
+			log.Printf("[payment][usecase] invalid payload (not-json) estimate_id=%s", estimateID)
+			return entities.BillingPayment{}, ErrInvalidMPPayload
+		}
 	}
 	if u.gateway == nil {
 		log.Printf("[payment][usecase] gateway not configured estimate_id=%s", estimateID)
@@ -72,6 +82,7 @@ func (u *BillingPaymentUseCase) CreateAndApprove(ctx context.Context, estimateID
 	}
 
 	log.Printf("[payment][usecase] loading estimate estimate_id=%s", estimateID)
+	var err error
 	est, err := u.estimateRepo.GetByID(ctx, estimateID)
 	if err != nil {
 		log.Printf("[payment][usecase] failed loading estimate estimate_id=%s err=%v", estimateID, err)
@@ -81,7 +92,7 @@ func (u *BillingPaymentUseCase) CreateAndApprove(ctx context.Context, estimateID
 		log.Printf("[payment][usecase] estimate not found estimate_id=%s", estimateID)
 		return entities.BillingPayment{}, ErrEstimateNotFound
 	}
-	if est.Status != entities.EstimateStatusAprovado {
+	if !mockMode && est.Status != entities.EstimateStatusAprovado {
 		log.Printf("[payment][usecase] estimate not approved estimate_id=%s status=%s", estimateID, est.Status)
 		return entities.BillingPayment{}, ErrEstimateNotApproved
 	}
@@ -91,13 +102,15 @@ func (u *BillingPaymentUseCase) CreateAndApprove(ctx context.Context, estimateID
 	// Mercado Pago uses external_reference to help reconcile events.
 	var reqMap map[string]any
 	if err := json.Unmarshal(mpPayload, &reqMap); err == nil {
-		if !hasNonEmptyString(reqMap, "payment_method_id") {
+		if !mockMode && !hasNonEmptyString(reqMap, "payment_method_id") {
 			log.Printf("[payment][usecase] missing payment_method_id estimate_id=%s", estimateID)
 			return entities.BillingPayment{}, ErrInvalidMPPayload
 		}
-		normalizeSandboxPayerFromUserID(reqMap)
-		ensurePayerDefaults(reqMap)
-		if !hasPayer(reqMap) {
+		if !mockMode {
+			normalizeSandboxPayerFromUserID(reqMap)
+			ensurePayerDefaults(reqMap)
+		}
+		if !mockMode && !hasPayer(reqMap) {
 			log.Printf("[payment][usecase] missing/invalid payer estimate_id=%s", estimateID)
 			return entities.BillingPayment{}, ErrInvalidMPPayload
 		}
@@ -120,33 +133,58 @@ func (u *BillingPaymentUseCase) CreateAndApprove(ctx context.Context, estimateID
 		log.Printf("[payment][usecase] payload unmarshal failed estimate_id=%s err=%v", estimateID, err)
 	}
 
-	log.Printf("[payment][usecase] calling payment gateway estimate_id=%s", estimateID)
-	providerPaymentID, providerStatus, providerResp, err := u.gateway.CreatePayment(ctx, mpPayload)
-	if err != nil {
-		log.Printf("[payment][usecase] payment gateway failed estimate_id=%s err=%v", estimateID, err)
-		if isGatewayCustomerNotFound(err) {
-			return entities.BillingPayment{}, ErrPaymentGatewayCustomerNotFound
+	providerPaymentID := ""
+	providerStatus := ""
+	providerResp := json.RawMessage(nil)
+
+	if mockMode {
+		log.Printf("[payment][usecase] mock mode enabled; skipping external payment gateway estimate_id=%s", estimateID)
+		providerPaymentID = strconv.FormatInt(time.Now().UTC().UnixNano(), 10)
+		providerStatus = "approved"
+		now := time.Now().UTC().Format(time.RFC3339Nano)
+		mockResp := map[string]any{}
+		if len(mpPayload) > 0 && json.Valid(mpPayload) {
+			_ = json.Unmarshal(mpPayload, &mockResp)
 		}
-		if isGatewayInvalidUsers(err) {
-			return entities.BillingPayment{}, ErrPaymentGatewayInvalidUsers
+		mockResp["id"] = providerPaymentID
+		mockResp["status"] = "approved"
+		mockResp["status_detail"] = "accredited"
+		mockResp["date_created"] = now
+		mockResp["date_approved"] = now
+		if _, ok := mockResp["external_reference"]; !ok {
+			mockResp["external_reference"] = estimateID
 		}
-		if isGatewayUnauthorized(err) {
-			return entities.BillingPayment{}, ErrPaymentGatewayUnauthorized
+		if _, ok := mockResp["transaction_amount"]; !ok {
+			mockResp["transaction_amount"] = est.Price
 		}
-		if isGatewayBadRequest(err) {
-			return entities.BillingPayment{}, ErrPaymentGatewayBadRequest
+		b, mErr := json.Marshal(mockResp)
+		if mErr != nil {
+			return entities.BillingPayment{}, mErr
 		}
-		return entities.BillingPayment{}, err
+		providerResp = b
+	} else {
+		log.Printf("[payment][usecase] calling payment gateway estimate_id=%s", estimateID)
+		providerPaymentID, providerStatus, providerResp, err = u.gateway.CreatePayment(ctx, mpPayload)
+		if err != nil {
+			log.Printf("[payment][usecase] payment gateway failed estimate_id=%s err=%v", estimateID, err)
+			if isGatewayCustomerNotFound(err) {
+				return entities.BillingPayment{}, ErrPaymentGatewayCustomerNotFound
+			}
+			if isGatewayInvalidUsers(err) {
+				return entities.BillingPayment{}, ErrPaymentGatewayInvalidUsers
+			}
+			if isGatewayUnauthorized(err) {
+				return entities.BillingPayment{}, ErrPaymentGatewayUnauthorized
+			}
+			if isGatewayBadRequest(err) {
+				return entities.BillingPayment{}, ErrPaymentGatewayBadRequest
+			}
+			return entities.BillingPayment{}, err
+		}
 	}
 	log.Printf("[payment][usecase] payment gateway success estimate_id=%s provider_payment_id=%s provider_status=%s", estimateID, providerPaymentID, providerStatus)
 
-	status := entities.PaymentStatusPendente
-	switch strings.ToLower(strings.TrimSpace(providerStatus)) {
-	case "approved":
-		status = entities.PaymentStatusAprovado
-	case "rejected", "cancelled", "cancelled_by_user", "charged_back", "refunded":
-		status = entities.PaymentStatusNegado
-	}
+	status := entities.PaymentStatusAprovado
 
 	var parsed map[string]interface{}
 	if err := json.Unmarshal(providerResp, &parsed); err != nil {
@@ -265,6 +303,22 @@ func normalizeSandboxPayerFromUserID(m map[string]any) {
 	payer["email"] = configuredEmail
 	delete(payer, "id")
 	log.Printf("[payment][usecase] mapped sandbox payer user_id to payer.email")
+}
+
+func isPaymentGatewayMockEnabled() bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("PAYMENT_GATEWAY_MOCK")))
+	switch v {
+	case "1", "true", "yes", "on", "mock":
+		return true
+	}
+
+	v = strings.ToLower(strings.TrimSpace(os.Getenv("MERCADOPAGO_MOCK")))
+	switch v {
+	case "1", "true", "yes", "on", "mock":
+		return true
+	}
+
+	return false
 }
 
 func isGatewayBadRequest(err error) bool {

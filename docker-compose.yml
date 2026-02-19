@@ -15,6 +15,7 @@ services:
       ESTIMATES_TABLE: ${ESTIMATES_TABLE:-estimates}
       PAYMENTS_TABLE: ${PAYMENTS_TABLE:-payments}
       MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN:-}
+      PAYMENT_GATEWAY_MOCK: ${PAYMENT_GATEWAY_MOCK:-true}
     depends_on:
       dynamodb-init:
         condition: service_completed_successfully
@@ -37,6 +38,7 @@ services:
       ESTIMATES_TABLE: ${ESTIMATES_TABLE:-estimates}
       PAYMENTS_TABLE: ${PAYMENTS_TABLE:-payments}
       MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN:-}
+      PAYMENT_GATEWAY_MOCK: ${PAYMENT_GATEWAY_MOCK:-true}
     depends_on:
       localstack-init:
         condition: service_completed_successfully

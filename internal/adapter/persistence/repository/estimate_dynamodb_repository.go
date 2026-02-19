@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"mecanica_xpto/internal/domain/entities"
@@ -16,6 +17,7 @@ import (
 )
 
 const defaultEstimatesTableName = "estimates"
+const estimatesOSIDIndexName = "os_id-index"
 
 type estimateItem struct {
 	ID        string `dynamodbav:"id"`
@@ -92,8 +94,61 @@ func (r *EstimateDynamoRepository) GetByID(ctx context.Context, id string) (enti
 }
 
 func (r *EstimateDynamoRepository) GetByOSID(ctx context.Context, osID string) (entities.Estimate, error) {
-	// Domain rule: estimate ID equals OS ID. We can resolve by PK directly.
-	return r.GetByID(ctx, osID)
+	// Always search by os_id.
+	out, err := r.ddb.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(r.tableName),
+		IndexName:              aws.String(estimatesOSIDIndexName),
+		KeyConditionExpression: aws.String("os_id = :osid"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":osid": &types.AttributeValueMemberS{Value: osID},
+		},
+		Limit: aws.Int32(1),
+	})
+	if err != nil {
+		if !isIndexNotAvailableError(err) {
+			return entities.Estimate{}, err
+		}
+
+		// Backward compatibility for local databases created without os_id-index.
+		scanOut, scanErr := r.ddb.Scan(ctx, &dynamodb.ScanInput{
+			TableName:        aws.String(r.tableName),
+			FilterExpression: aws.String("os_id = :osid"),
+			ExpressionAttributeValues: map[string]types.AttributeValue{
+				":osid": &types.AttributeValueMemberS{Value: osID},
+			},
+			Limit: aws.Int32(1),
+		})
+		if scanErr != nil {
+			return entities.Estimate{}, scanErr
+		}
+		if len(scanOut.Items) == 0 {
+			return entities.Estimate{}, nil
+		}
+
+		var it estimateItem
+		if err := attributevalue.UnmarshalMap(scanOut.Items[0], &it); err != nil {
+			return entities.Estimate{}, err
+		}
+		return fromEstimateItem(it), nil
+	}
+
+	if len(out.Items) == 0 {
+		return entities.Estimate{}, nil
+	}
+
+	var it estimateItem
+	if err := attributevalue.UnmarshalMap(out.Items[0], &it); err != nil {
+		return entities.Estimate{}, err
+	}
+	return fromEstimateItem(it), nil
+}
+
+func isIndexNotAvailableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "validationexception") || strings.Contains(msg, "index")
 }
 
 func (r *EstimateDynamoRepository) UpdateStatusByOSID(ctx context.Context, osID string, status entities.EstimateStatus) (entities.Estimate, error) {

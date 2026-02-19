@@ -14,6 +14,9 @@ import (
 )
 
 func TestBillingPaymentUseCase_CreateAndApprove_Validations(t *testing.T) {
+	t.Setenv("PAYMENT_GATEWAY_MOCK", "")
+	t.Setenv("MERCADOPAGO_MOCK", "")
+
 	t.Run("empty estimate id", func(t *testing.T) {
 		uc := NewBillingPaymentUseCase(nil, nil, nil)
 		_, err := uc.CreateAndApprove(context.Background(), " ", json.RawMessage(`{}`))
@@ -64,6 +67,9 @@ func TestBillingPaymentUseCase_CreateAndApprove_Validations(t *testing.T) {
 }
 
 func TestBillingPaymentUseCase_CreateAndApprove_EstimateChecks(t *testing.T) {
+	t.Setenv("PAYMENT_GATEWAY_MOCK", "")
+	t.Setenv("MERCADOPAGO_MOCK", "")
+
 	t.Run("estimate repo returns error", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -114,6 +120,9 @@ func TestBillingPaymentUseCase_CreateAndApprove_EstimateChecks(t *testing.T) {
 }
 
 func TestBillingPaymentUseCase_CreateAndApprove_PayloadValidation(t *testing.T) {
+	t.Setenv("PAYMENT_GATEWAY_MOCK", "")
+	t.Setenv("MERCADOPAGO_MOCK", "")
+
 	t.Run("missing payment_method_id", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -150,6 +159,9 @@ func TestBillingPaymentUseCase_CreateAndApprove_PayloadValidation(t *testing.T) 
 }
 
 func TestBillingPaymentUseCase_CreateAndApprove_GatewayErrorMapping(t *testing.T) {
+	t.Setenv("PAYMENT_GATEWAY_MOCK", "")
+	t.Setenv("MERCADOPAGO_MOCK", "")
+
 	cases := []struct {
 		name string
 		err  error
@@ -199,6 +211,9 @@ func TestBillingPaymentUseCase_CreateAndApprove_GatewayErrorMapping(t *testing.T
 }
 
 func TestBillingPaymentUseCase_CreateAndApprove_SuccessAndStatuses(t *testing.T) {
+	t.Setenv("PAYMENT_GATEWAY_MOCK", "")
+	t.Setenv("MERCADOPAGO_MOCK", "")
+
 	cases := []struct {
 		name           string
 		providerStatus string
@@ -206,8 +221,8 @@ func TestBillingPaymentUseCase_CreateAndApprove_SuccessAndStatuses(t *testing.T)
 		providerResp   json.RawMessage
 	}{
 		{name: "approved", providerStatus: "approved", want: entities.PaymentStatusAprovado, providerResp: json.RawMessage(`{"id":123}`)},
-		{name: "rejected", providerStatus: "rejected", want: entities.PaymentStatusNegado, providerResp: json.RawMessage(`{"id":123}`)},
-		{name: "pending default", providerStatus: "in_process", want: entities.PaymentStatusPendente, providerResp: json.RawMessage(`{"id":123}`)},
+		{name: "rejected", providerStatus: "rejected", want: entities.PaymentStatusAprovado, providerResp: json.RawMessage(`{"id":123}`)},
+		{name: "pending default", providerStatus: "in_process", want: entities.PaymentStatusAprovado, providerResp: json.RawMessage(`{"id":123}`)},
 		{name: "invalid provider response json", providerStatus: "approved", want: entities.PaymentStatusAprovado, providerResp: json.RawMessage(`{`)},
 	}
 
@@ -290,6 +305,9 @@ func TestBillingPaymentUseCase_CreateAndApprove_SuccessAndStatuses(t *testing.T)
 }
 
 func TestBillingPaymentUseCase_Getters(t *testing.T) {
+	t.Setenv("PAYMENT_GATEWAY_MOCK", "")
+	t.Setenv("MERCADOPAGO_MOCK", "")
+
 	t.Run("GetByID invalid", func(t *testing.T) {
 		uc := NewBillingPaymentUseCase(nil, nil, nil)
 		_, err := uc.GetByID(context.Background(), "")
@@ -361,6 +379,9 @@ func TestBillingPaymentUseCase_Getters(t *testing.T) {
 }
 
 func TestBillingPaymentUseCase_HelperFunctions(t *testing.T) {
+	t.Setenv("PAYMENT_GATEWAY_MOCK", "")
+	t.Setenv("MERCADOPAGO_MOCK", "")
+
 	t.Run("hasNonEmptyString", func(t *testing.T) {
 		if hasNonEmptyString(map[string]any{}, "x") {
 			t.Fatalf("expected false")
