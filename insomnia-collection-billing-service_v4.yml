@@ -1,0 +1,218 @@
+type: collection.insomnia.rest/5.0
+name: Billing Service v3
+meta:
+  id: wrk_billing_service_v3
+  created: 1760486400000
+  modified: 1760486400000
+  description: "Collection somente com endpoints do billing-service"
+collection:
+  - name: billing-service
+    meta:
+      id: fld_billing_service_v3
+      created: 1760486400001
+      modified: 1760486400001
+      sortKey: -1760486400001
+      description: "Endpoints compatíveis com IBillingServiceRepository"
+    children:
+      - url: "{{ _.base_url }}/ping"
+        name: Health Check
+        meta:
+          id: req_bs_v3_ping
+          created: 1760486400002
+          modified: 1760486400002
+          isPrivate: false
+          description: "Verifica se a API está online"
+          sortKey: -1760486400100
+        method: GET
+        headers:
+          - name: User-Agent
+            value: insomnia/11.3.0
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/estimates"
+        name: Create Estimate
+        meta:
+          id: req_bs_v3_create_estimate
+          created: 1760486400003
+          modified: 1760486400003
+          isPrivate: false
+          description: "CreateEstimate"
+          sortKey: -1760486400090
+        method: POST
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "os_id": "{{ _.estimate_id }}",
+              "value_cents": 12500
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/11.3.0
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/estimates/approve"
+        name: Approve Estimate
+        meta:
+          id: req_bs_v3_approve_estimate
+          created: 1760486400004
+          modified: 1760486400004
+          isPrivate: false
+          description: "ApproveEstimate"
+          sortKey: -1760486400080
+        method: PATCH
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "os_id": "{{ _.estimate_id }}"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/11.3.0
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/estimates/reject"
+        name: Reject Estimate
+        meta:
+          id: req_bs_v3_reject_estimate
+          created: 1760486400005
+          modified: 1760486400005
+          isPrivate: false
+          description: "RejectEstimate"
+          sortKey: -1760486400070
+        method: PATCH
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "os_id": "{{ _.estimate_id }}"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/11.3.0
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/estimates/cancel"
+        name: Cancel Estimate
+        meta:
+          id: req_bs_v3_cancel_estimate
+          created: 1760486400006
+          modified: 1760486400006
+          isPrivate: false
+          description: "CancelEstimate"
+          sortKey: -1760486400060
+        method: PATCH
+        body:
+          mimeType: application/json
+          text: |-
+            {
+              "os_id": "{{ _.estimate_id }}"
+            }
+        headers:
+          - name: Content-Type
+            value: application/json
+          - name: User-Agent
+            value: insomnia/11.3.0
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/payments/{{ _.estimate_id }}"
+        name: Create Payment
+        meta:
+          id: req_bs_v3_create_payment
+          created: 1760486400007
+          modified: 1760486400007
+          isPrivate: false
+          description: "CreatePayment"
+          sortKey: -1760486400050
+        method: POST
+        headers:
+          - name: User-Agent
+            value: insomnia/11.3.0
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+
+      - url: "{{ _.base_url }}/payments/{{ _.estimate_id }}"
+        name: Get Payment by Estimate ID
+        meta:
+          id: req_bs_v3_get_payment
+          created: 1760486400008
+          modified: 1760486400008
+          isPrivate: false
+          description: "GetPaymentByEstimateID"
+          sortKey: -1760486400040
+        method: GET
+        headers:
+          - name: User-Agent
+            value: insomnia/11.3.0
+        settings:
+          renderRequestBody: true
+          encodeUrl: true
+          followRedirects: global
+          cookies:
+            send: true
+            store: true
+          rebuildPath: true
+cookieJar:
+  name: Default Jar
+  meta:
+    id: jar_billing_service_v3
+    created: 1760486400010
+    modified: 1760486400010
+environments:
+  name: Base Environment
+  meta:
+    id: env_billing_service_v3
+    created: 1760486400011
+    modified: 1760486400011
+    isPrivate: false
+  data:
+    base_url: http://localhost:8080/v1
+    estimate_id: os_demo_1

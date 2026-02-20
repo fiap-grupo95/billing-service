@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: newrelic-events-config
+  namespace: newrelic
+data:
+  config.yaml: |
+    sinks:
+    - name: newRelicInfra
+      config:
+        agentEndpoint: https://infra-api.newrelic.com/integrations/v1/events
+        clusterName: mecanica-xpto-cluster
+        agentHTTPTimeout: 30s

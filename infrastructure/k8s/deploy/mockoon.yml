@@ -1,0 +1,160 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mockoon-config
+  namespace: billing-service
+data:
+  tech_challenge.json: |
+    {
+      "uuid": "b56778ce-c312-4e16-bf15-af51d1dd231c",
+      "lastMigration": 33,
+      "name": "Tech Challenge",
+      "endpointPrefix": "",
+      "latency": 0,
+      "port": 8083,
+      "hostname": "",
+      "folders": [],
+      "routes": [
+        {
+          "uuid": "9b0c9ae4-4d83-4f1f-8c1b-cf0e9bb7bca1",
+          "type": "http",
+          "documentation": "",
+          "method": "post",
+          "endpoint": "v1/estimates",
+          "responses": [
+            {
+              "uuid": "cf0d2f65-2ef3-4f2f-9b6d-8a0a0a3e3e11",
+              "body": "{\n\t\"id\": \"est_{{uuid}}\",\n\t\"service_order_id\": \"{{body 'service_order_id'}}\",\n\t\"status\": \"created\",\n\t\"value\": 500,\n\t\"currency\": \"BRL\"\n}",
+              "latency": 0,
+              "statusCode": 201,
+              "label": "",
+              "headers": [],
+              "bodyType": "INLINE",
+              "filePath": "",
+              "databucketID": "",
+              "sendFileAsBody": false,
+              "rules": [],
+              "rulesOperator": "OR",
+              "disableTemplating": false,
+              "fallbackTo404": false,
+              "default": true,
+              "crudKey": "id",
+              "callbacks": []
+            }
+          ],
+          "responseMode": null,
+          "streamingMode": null,
+          "streamingInterval": 0
+        },
+        {
+          "uuid": "b4a52ea6-59b0-4c11-8d48-ec6c8f9db8e3",
+          "type": "http",
+          "documentation": "",
+          "method": "post",
+          "endpoint": "v1/payments",
+          "responses": [
+            {
+              "uuid": "d8b2f49a-3b42-4e2c-aefb-ec2c6a7c1b8a",
+              "body": "{\n\t\"id\": \"pay_{{uuid}}\",\n\t\"estimate_id\": \"{{body 'estimate_id'}}\",\n\t\"status\": \"created\",\n\t\"amount\": 500,\n\t\"currency\": \"BRL\"\n}",
+              "latency": 0,
+              "statusCode": 201,
+              "label": "",
+              "headers": [],
+              "bodyType": "INLINE",
+              "filePath": "",
+              "databucketID": "",
+              "sendFileAsBody": false,
+              "rules": [],
+              "rulesOperator": "OR",
+              "disableTemplating": false,
+              "fallbackTo404": false,
+              "default": true,
+              "crudKey": "id",
+              "callbacks": []
+            }
+          ],
+          "responseMode": null,
+          "streamingMode": null,
+          "streamingInterval": 0
+        }
+      ],
+      "rootChildren": [
+        {
+          "type": "route",
+          "uuid": "9b0c9ae4-4d83-4f1f-8c1b-cf0e9bb7bca1"
+        },
+        {
+          "type": "route",
+          "uuid": "b4a52ea6-59b0-4c11-8d48-ec6c8f9db8e3"
+        }
+      ],
+      "proxyMode": false,
+      "proxyHost": "",
+      "proxyRemovePrefix": false,
+      "tlsOptions": {
+        "enabled": false,
+        "type": "CERT",
+        "pfxPath": "",
+        "certPath": "",
+        "keyPath": "",
+        "caPath": "",
+        "passphrase": ""
+      },
+      "cors": true,
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "proxyReqHeaders": [],
+      "proxyResHeaders": [],
+      "data": [],
+      "callbacks": []
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mockoon
+  namespace: billing-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mockoon
+  template:
+    metadata:
+      labels:
+        app: mockoon
+    spec:
+      containers:
+        - name: mockoon
+          image: mockoon/cli:latest
+          args: ["--data", "/data/tech_challenge.json", "--port", "8083", "--hostname", "0.0.0.0"]
+          ports:
+            - containerPort: 8083
+          volumeMounts:
+            - name: mockoon-data
+              mountPath: /data
+      volumes:
+        - name: mockoon-data
+          configMap:
+            name: mockoon-config
+            items:
+              - key: tech_challenge.json
+                path: tech_challenge.json
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mockoon
+  namespace: billing-service
+spec:
+  selector:
+    app: mockoon
+  ports:
+    - name: http
+      port: 8083
+      targetPort: 8083
+  type: ClusterIP

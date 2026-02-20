@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: billing-service
+data:
+  AWS_REGION: "us-east-1"
+  DYNAMODB_ENDPOINT: "http://host.minikube.internal:4566"
+  ESTIMATES_TABLE: "estimates"
+  PAYMENTS_TABLE: "payments"
+  GIN_MODE: "release"
